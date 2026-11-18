@@ -21,3 +21,5 @@ authors:
     given-names: Daniel
     affiliation: University of Lethbridge
 license: MIT
+repository-code: "https://github.com/ULDataProfessor/schema-validated-llm-workflows"
+url: "https://github.com/ULDataProfessor/schema-validated-llm-workflows"
