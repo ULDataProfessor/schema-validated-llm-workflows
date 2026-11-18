@@ -1,0 +1,130 @@
+version: 1
+description: "Pre-specified mechanism checks for the type-safe agent benchmark."
+rules:
+  separate_from_primary_matrix: true
+  require_explicit_label: true
+  do_not_rank_frameworks_from_ablations: true
+  trial_key_fields:
+    - framework
+    - task
+    - sample_id
+    - seed
+    - ablation_id
+    - condition
+
+ablations:
+  - id: "provider_native_vs_application_validation"
+    purpose: "Separate provider-native structured-output enforcement from application-layer validation."
+    primary_question: "How much schema validity comes from provider constrained decoding rather than framework code?"
+    comparison:
+      - condition: "provider_native_json_schema"
+        description: "Provider structured-output mode or response-format schema is enabled when supported."
+      - condition: "application_validation_only"
+        description: "The model returns ordinary text or relaxed JSON; Pydantic validation and repair run in application code."
+    tasks:
+      - extraction
+      - sql_generation
+      - summarization
+      - compliance_qa
+      - multi_step
+    primary_metrics:
+      - schema_valid
+      - zero_retry_success
+      - quality_score
+      - retries
+      - latency_ms
+      - total_tokens
+    claim_boundary: "Framework reliability claims must account for whether provider-native enforcement equalizes structural validity."
+
+  - id: "zero_retry_vs_final_validity"
+    purpose: "Estimate the reliability purchased by retry and repair loops."
+    primary_question: "How much final validity depends on additional model calls after a first invalid response?"
+    comparison:
+      - condition: "zero_retry"
+        description: "Score only first-attempt outputs with no repair attempt."
+      - condition: "final_after_retry_budget"
+        description: "Score final outputs after the shared retry budget is exhausted or succeeds."
+    tasks:
+      - extraction
+      - sql_generation
+      - summarization
+      - compliance_qa
+      - multi_step
+    primary_metrics:
+      - schema_valid
+      - zero_retry_success
+      - quality_score
+      - retries
+      - latency_ms
+      - total_tokens
+    claim_boundary: "Final validity improvements should be interpreted with their latency, token, and retry burden."
+
+  - id: "domain_validators_enabled"
+    purpose: "Separate structural typing from domain-level validators and executable checks."
+    primary_question: "Do validators improve business correctness, or do they mainly reject otherwise schema-shaped outputs?"
+    comparison:
+      - condition: "validators_disabled"
+        description: "Only the structural Pydantic schema is enforced before scoring."
+      - condition: "validators_enabled"
+        description: "Task validators such as SQL safety, citation support, and workflow consistency are active."
+    tasks:
+      - sql_generation
+      - compliance_qa
+      - multi_step
+    primary_metrics:
+      - schema_valid
+      - quality_score
+      - retries
+      - error_type_counts
+      - latency_ms
+      - total_tokens
+    claim_boundary: "Schema-first benefits should distinguish shape validation from business-rule validation."
+
+  - id: "typed_dependencies_and_tools"
+    purpose: "Test whether typed dependencies and tool contracts add value beyond prompt-only context."
+    primary_question: "Do typed dependency and tool boundaries improve traceability, decisions, or recovery?"
+    comparison:
+      - condition: "prompt_only_context"
+        description: "Relevant context and tool instructions are pasted into the prompt."
+      - condition: "typed_dependencies_and_tools"
+        description: "Context and operations are passed through typed dependency or tool interfaces."
+    tasks:
+      - compliance_qa
+      - multi_step
+    primary_metrics:
+      - quality_score
+      - tool_selection_accuracy
+      - citation_support
+      - trace_completeness
+      - retries
+      - latency_ms
+    claim_boundary: "Claims about agent design should be tied to observable trace and decision differences."
+
+  - id: "secondary_model_subset"
+    purpose: "Check whether framework effects persist when the underlying model provider changes."
+    primary_question: "Are observed framework differences stable under the configured secondary model subset?"
+    comparison:
+      - condition: "primary_model"
+        description: "Run the selected subset with the primary model configuration."
+      - condition: "secondary_model"
+        description: "Run the same subset with the secondary model configuration."
+    tasks:
+      - extraction
+      - sql_generation
+      - summarization
+      - compliance_qa
+      - multi_step
+    subset_limits:
+      extraction: 25
+      sql_generation: 25
+      summarization: 25
+      compliance_qa: 25
+      multi_step: 25
+    primary_metrics:
+      - schema_valid
+      - zero_retry_success
+      - quality_score
+      - retries
+      - latency_ms
+      - total_tokens
+    claim_boundary: "Provider-general claims require effects that survive at least this secondary-model check."

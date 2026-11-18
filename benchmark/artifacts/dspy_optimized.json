@@ -1,0 +1,9 @@
+{
+  "condition": "dspy_optimized_holdout",
+  "task": "extraction",
+  "train_size": 20,
+  "dev_size": 10,
+  "optimizer": "BootstrapFewShot",
+  "status": "planned_or_local_only",
+  "note": "Primary matrix keeps untuned DSPy. Optimized programs should be evaluated only under ablation_id=dspy_optimized_holdout."
+}

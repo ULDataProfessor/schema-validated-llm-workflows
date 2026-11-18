@@ -1,0 +1,11 @@
+default:
+  model: "openai:gpt-4o-mini"
+  temperature: 0.0
+  max_retries: 3
+  timeout_seconds: 120
+
+# Secondary model for robustness checks (subset of trials)
+secondary:
+  model: "anthropic:claude-sonnet-4-20250514"
+  temperature: 0.0
+  max_retries: 3

@@ -1,0 +1,31 @@
+seeds: [42, 43, 44]
+
+sample_limits:
+  extraction: 100
+  sql_generation: 50
+  summarization: 50
+  compliance_qa: 50
+  multi_step: 50
+
+pilot:
+  sample_limits:
+    extraction: 10
+    sql_generation: 10
+    summarization: 10
+    compliance_qa: 10
+    multi_step: 10
+
+frameworks:
+  - pydantic_ai
+  - plain_sdk
+  - langgraph
+  - dspy
+  - crewai
+  - agno
+
+tasks:
+  - extraction
+  - sql_generation
+  - summarization
+  - compliance_qa
+  - multi_step

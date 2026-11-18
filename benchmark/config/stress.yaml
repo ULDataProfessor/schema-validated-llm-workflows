@@ -1,0 +1,106 @@
+version: 1
+description: "Pre-specified stress conditions for production-robustness extensions."
+rules:
+  separate_from_primary_matrix: true
+  require_explicit_label: true
+  do_not_rank_frameworks_from_stress: true
+  join_key_fields:
+    - framework
+    - task
+    - sample_id
+    - seed
+    - stress_id
+
+families:
+  repeated_execution:
+    purpose: "Estimate run-to-run stability for unchanged inputs."
+    primary_evidence:
+      - schema_valid
+      - quality_score
+      - final_disposition
+      - tool_selection_accuracy
+  input_perturbation:
+    purpose: "Test robustness to semantically equivalent input changes."
+    primary_evidence:
+      - quality_delta
+      - validation_delta
+      - citation_support_delta
+  tool_or_api_fault:
+    purpose: "Test bounded failure and recovery when tools or APIs degrade."
+    primary_evidence:
+      - recovery_rate
+      - fail_closed_rate
+      - retry_cause
+      - trace_completeness
+  schema_drift:
+    purpose: "Test whether contract changes become visible, repairable, and localized."
+    primary_evidence:
+      - validation_failure_visibility
+      - repair_rate
+      - change_locality
+
+stress_conditions:
+  - stress_id: "extraction_repeat_001"
+    base_sample_id: "inv_0001"
+    task: "extraction"
+    family: "repeated_execution"
+    manipulation: "repeat_same_input"
+    expected_invariant:
+      schema_valid: "stable"
+      quality_score: "stable"
+      parsed_output: "semantically_equivalent"
+    fault:
+      type: null
+      intensity: 0
+
+  - stress_id: "compliance_policy_reorder_001"
+    base_sample_id: "pol_0001"
+    task: "compliance_qa"
+    family: "input_perturbation"
+    manipulation: "reorder_policy_sections"
+    expected_invariant:
+      answer: "same"
+      citation_quote: "same"
+      schema_version: "compliance_qa_v1"
+    fault:
+      type: null
+      intensity: 0
+
+  - stress_id: "sql_timeout_001"
+    base_sample_id: "sql_0001"
+    task: "sql_generation"
+    family: "tool_or_api_fault"
+    manipulation: "inject_explain_timeout"
+    expected_invariant:
+      side_effects: "none"
+      final_disposition: "retry_or_review"
+      query_mutation: "never"
+    fault:
+      type: "sql_timeout"
+      intensity: 1
+
+  - stress_id: "workflow_missing_tool_result_001"
+    base_sample_id: "wrk_0003"
+    task: "multi_step"
+    family: "tool_or_api_fault"
+    manipulation: "drop_selected_tool_result"
+    expected_invariant:
+      requires_human_review: true
+      final_disposition: "review_required"
+      false_success: "never"
+    fault:
+      type: "missing_tool_result"
+      intensity: 1
+
+  - stress_id: "complaint_schema_drift_001"
+    base_sample_id: "cmp_0001"
+    task: "extraction"
+    family: "schema_drift"
+    manipulation: "add_required_evidence_span"
+    expected_invariant:
+      schema_version: "complaint.v2"
+      validation_failure_visible: true
+      old_record_version_preserved: true
+    fault:
+      type: "required_field_added"
+      intensity: 1

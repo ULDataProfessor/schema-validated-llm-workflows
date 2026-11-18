@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this benchmark or manuscript, please cite the version you used."
+title: "Schema-Validated LLM Workflows: A Benchmark Protocol and Comparative Evaluation Across Six Python Implementations"
+type: software
+version: 0.1.0
+date-released: 2026-07-23
+authors:
+  - family-names: Shapiro
+    given-names: Sidney
+    affiliation: University of Lethbridge
+  - family-names: Al-Khatib
+    given-names: Sanad
+    affiliation: Al Hussein Technical University
+  - family-names: Pinzón Arzola
+    given-names: Aurora
+    affiliation: Universidad de Guanajuato
+  - family-names: Gonzalez Venegas
+    given-names: Emiliano Sebastian
+    affiliation: Universidad de Guadalajara
+  - family-names: Pearson
+    given-names: Daniel
+    affiliation: University of Lethbridge
+license: MIT

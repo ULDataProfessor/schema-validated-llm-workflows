@@ -1,0 +1,12 @@
+#cloud-config
+# Optional Ubuntu-only bootstrap. It installs no project code and no secrets.
+package_update: true
+packages:
+  - git
+  - python3-venv
+  - python3-pip
+  - rsync
+  - tmux
+runcmd:
+  - mkdir -p /opt/pydantic-benchmark
+  - chmod 775 /opt/pydantic-benchmark

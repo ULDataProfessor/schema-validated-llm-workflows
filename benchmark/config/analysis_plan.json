@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "unit_of_analysis": "distinct_task_instance",
+  "replicate_field": "seed",
+  "cluster_key": [
+    "task",
+    "sample_id"
+  ],
+  "alpha": 0.05,
+  "bootstrap_resamples": 2000,
+  "tasks": {
+    "extraction": {
+      "n_instances": 100,
+      "n_replicates": 3,
+      "primary_contrasts": [
+        "each_condition_vs_plain_sdk"
+      ],
+      "secondary_contrasts": [
+        "pydantic_ai_vs_agno"
+      ],
+      "multiplicity": "holm_within_task_vs_sdk",
+      "metrics": {
+        "schema_valid": {
+          "sd_assumption": 0.2,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.03210697174072267,
+          "power_at_mde": 0.793,
+          "equivalence_power_at_zero": 0.988
+        },
+        "quality_score": {
+          "sd_assumption": 0.15,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.024080228805541986,
+          "power_at_mde": 0.793,
+          "equivalence_power_at_zero": 0.999
+        }
+      }
+    },
+    "sql_generation": {
+      "n_instances": 50,
+      "n_replicates": 3,
+      "primary_contrasts": [
+        "each_condition_vs_plain_sdk"
+      ],
+      "secondary_contrasts": [
+        "pydantic_ai_vs_agno"
+      ],
+      "multiplicity": "holm_within_task_vs_sdk",
+      "metrics": {
+        "schema_valid": {
+          "sd_assumption": 0.2,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.04494495391845704,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.8375
+        },
+        "quality_score": {
+          "sd_assumption": 0.15,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.03370871543884278,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.9795
+        }
+      }
+    },
+    "summarization": {
+      "n_instances": 50,
+      "n_replicates": 3,
+      "primary_contrasts": [
+        "each_condition_vs_plain_sdk"
+      ],
+      "secondary_contrasts": [
+        "pydantic_ai_vs_agno"
+      ],
+      "multiplicity": "holm_within_task_vs_sdk",
+      "metrics": {
+        "schema_valid": {
+          "sd_assumption": 0.2,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.04494495391845704,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.8375
+        },
+        "quality_score": {
+          "sd_assumption": 0.15,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.03370871543884278,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.9795
+        }
+      }
+    },
+    "compliance_qa": {
+      "n_instances": 50,
+      "n_replicates": 3,
+      "primary_contrasts": [
+        "each_condition_vs_plain_sdk"
+      ],
+      "secondary_contrasts": [
+        "pydantic_ai_vs_agno"
+      ],
+      "multiplicity": "holm_within_task_vs_sdk",
+      "metrics": {
+        "schema_valid": {
+          "sd_assumption": 0.2,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.04494495391845704,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.8375
+        },
+        "quality_score": {
+          "sd_assumption": 0.15,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.03370871543884278,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.9795
+        }
+      }
+    },
+    "multi_step": {
+      "n_instances": 50,
+      "n_replicates": 3,
+      "primary_contrasts": [
+        "each_condition_vs_plain_sdk"
+      ],
+      "secondary_contrasts": [
+        "pydantic_ai_vs_agno"
+      ],
+      "multiplicity": "holm_within_task_vs_sdk",
+      "metrics": {
+        "schema_valid": {
+          "sd_assumption": 0.2,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.04494495391845704,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.8375
+        },
+        "quality_score": {
+          "sd_assumption": 0.15,
+          "equivalence_margin": 0.05,
+          "approx_mde_80": 0.03370871543884278,
+          "power_at_mde": 0.7925,
+          "equivalence_power_at_zero": 0.9795
+        }
+      }
+    }
+  },
+  "estimands": {
+    "structural": [
+      "paired_delta_first_call_validity",
+      "paired_delta_final_validity"
+    ],
+    "task": [
+      "paired_delta_quality_score"
+    ],
+    "cost": [
+      "provider_calls",
+      "total_tokens",
+      "latency_ms"
+    ]
+  }
+}
