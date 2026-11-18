@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from data.schemas.compliance import PolicyAnswer
@@ -11,7 +12,7 @@ from data.schemas.sql import SQLGenerationResult
 from data.schemas.summarization import ExecutiveSummary
 from data.schemas.workflow import WorkflowResult
 from eval.attempt_trace import attempt_event, retries_from_attempts
-from eval.metrics import execute_workflow_tool, field_accuracy
+from eval.metrics import execute_workflow_tool, field_accuracy, normalize_string
 from frameworks.base import FrameworkRunner, RunResult
 from tasks.extraction.prompts import get_extraction_prompt
 from tasks.prompts import build_task_user_prompt, get_task_system_prompt
@@ -81,6 +82,17 @@ def _tokens_from_usage(usage: Any) -> tuple[int, int] | None:
     return (int(tokens_in), int(tokens_out))
 
 
+@dataclass
+class TaskDeps:
+    """Typed dependency bag for feature-using ablations."""
+
+    task: str
+    sample_id: str | None = None
+    policy_text: str | None = None
+    schema_context: str | None = None
+    request_text: str | None = None
+
+
 class PydanticAIRunner(FrameworkRunner):
     name = "pydantic_ai"
 
@@ -97,12 +109,57 @@ class PydanticAIRunner(FrameworkRunner):
         self.enable_validators = enable_validators
         self.use_typed_deps = use_typed_deps
 
+    def _register_validators(self, agent: Any, schema_cls: type) -> None:
+        if not self.enable_validators:
+            return
+        from pydantic_ai import ModelRetry
+
+        if schema_cls is SQLGenerationResult:
+
+            @agent.output_validator
+            async def validate_sql(_ctx: Any, output: SQLGenerationResult) -> SQLGenerationResult:
+                sql = (output.sql or "").strip().lower()
+                if not sql:
+                    raise ModelRetry("SQL must be non-empty.")
+                if any(tok in sql for tok in (" drop ", " delete ", " update ", " insert ", " alter ")):
+                    raise ModelRetry("Only read-only SELECT-style SQL is allowed.")
+                if "select" not in sql:
+                    raise ModelRetry("SQL must include a SELECT clause.")
+                return output
+
+        elif schema_cls is PolicyAnswer:
+
+            @agent.output_validator
+            async def validate_policy(ctx: Any, output: PolicyAnswer) -> PolicyAnswer:
+                if not output.citations:
+                    raise ModelRetry("Provide at least one citation with a quote span.")
+                quote = normalize_string(getattr(output.citations[0], "quote", "") or "")
+                if len(quote) < 8:
+                    raise ModelRetry("Citation quote is too short to be grounding evidence.")
+                deps = getattr(ctx, "deps", None)
+                policy = normalize_string(getattr(deps, "policy_text", None) or "")
+                if policy and quote not in policy:
+                    raise ModelRetry(
+                        "Citation quote must appear in the provided policy text."
+                    )
+                return output
+
+        elif schema_cls is WorkflowResult:
+
+            @agent.output_validator
+            async def validate_workflow(_ctx: Any, output: WorkflowResult) -> WorkflowResult:
+                tool = (getattr(output, "tool_used", None) or "").strip()
+                if not tool:
+                    raise ModelRetry("Select a concrete tool_used value.")
+                return output
+
     async def _run_agent(
         self,
         *,
         schema_cls: type,
         system_prompt: str,
         user_prompt: str,
+        deps: TaskDeps | None = None,
     ) -> RunResult:
         start = time.perf_counter()
         raw: str | None = None
@@ -114,26 +171,55 @@ class PydanticAIRunner(FrameworkRunner):
         try:
             from pydantic_ai import Agent
 
-            # Observe attempts in the harness loop; disable hidden Agent retries.
-            agent = Agent(
-                self.model,
-                output_type=schema_cls,
-                system_prompt=system_prompt,
-                retries=1,
-            )
+            agent_kwargs: dict[str, Any] = {
+                "model": self.model,
+                "output_type": schema_cls,
+                "system_prompt": system_prompt,
+                "retries": 1,
+            }
+            if self.use_typed_deps:
+                agent_kwargs["deps_type"] = TaskDeps
+            agent = Agent(**agent_kwargs)
+            self._register_validators(agent, schema_cls)
+
             prompt = user_prompt
+            if self.use_typed_deps and deps is not None:
+                prompt = (
+                    f"{user_prompt}\n\n"
+                    f"[typed_deps.task={deps.task}; sample_id={deps.sample_id}]"
+                )
+
             for attempt in range(self.max_retries + 1):
                 provider_calls += 1
                 try:
-                    result = await agent.run(prompt)
+                    if self.use_typed_deps and deps is not None:
+                        result = await agent.run(prompt, deps=deps)
+                    else:
+                        result = await agent.run(prompt)
                     output = result.output
                     raw = output.model_dump_json()
                     call_in, call_out = _usage_from_result(result)
                     tokens_in += call_in or 0
                     tokens_out += call_out or 0
                     trace_events.append(
-                        attempt_event(attempt=attempt, status="schema_valid")
+                        attempt_event(
+                            attempt=attempt,
+                            status="schema_valid",
+                            detail=(
+                                "validators_enabled"
+                                if self.enable_validators
+                                else "validators_disabled"
+                            ),
+                        )
                     )
+                    if self.use_typed_deps:
+                        trace_events.append(
+                            {
+                                "type": "typed_deps",
+                                "task": getattr(deps, "task", None),
+                                "sample_id": getattr(deps, "sample_id", None),
+                            }
+                        )
                     elapsed = (time.perf_counter() - start) * 1000
                     return RunResult(
                         output=output,
@@ -157,7 +243,7 @@ class PydanticAIRunner(FrameworkRunner):
                     )
                     prompt = (
                         f"{user_prompt}\n\nPrevious attempt failed validation: {exc}. "
-                        "Return a value that matches the schema."
+                        "Return a value that matches the schema and domain constraints."
                     )
         except ImportError:
             last_error = "pydantic-ai package not installed; pip install -e '.[pydantic_ai]'"
@@ -178,12 +264,25 @@ class PydanticAIRunner(FrameworkRunner):
             trace_events=trace_events,
         )
 
+    def _deps_for_sample(self, task: str, sample: dict[str, Any] | None) -> TaskDeps | None:
+        if not self.use_typed_deps:
+            return None
+        sample = sample or {}
+        return TaskDeps(
+            task=task,
+            sample_id=sample.get("id"),
+            policy_text=sample.get("policy_text") or sample.get("policy"),
+            schema_context=sample.get("schema") or sample.get("db_schema"),
+            request_text=sample.get("text") or sample.get("request"),
+        )
+
     async def run_extraction(self, document: str, subtype: str = "invoice") -> RunResult:
         schema_cls = InvoiceExtraction if subtype == "invoice" else ComplaintExtraction
         return await self._run_agent(
             schema_cls=schema_cls,
             system_prompt=get_extraction_prompt(subtype),
             user_prompt=document,
+            deps=TaskDeps(task="extraction") if self.use_typed_deps else None,
         )
 
     async def run_sql_generation(self, sample: dict[str, Any]) -> RunResult:
@@ -191,6 +290,7 @@ class PydanticAIRunner(FrameworkRunner):
             schema_cls=SQLGenerationResult,
             system_prompt=get_task_system_prompt("sql_generation"),
             user_prompt=build_task_user_prompt("sql_generation", sample),
+            deps=self._deps_for_sample("sql_generation", sample),
         )
 
     async def run_summarization(self, sample: dict[str, Any]) -> RunResult:
@@ -198,6 +298,7 @@ class PydanticAIRunner(FrameworkRunner):
             schema_cls=ExecutiveSummary,
             system_prompt=get_task_system_prompt("summarization"),
             user_prompt=build_task_user_prompt("summarization", sample),
+            deps=self._deps_for_sample("summarization", sample),
         )
 
     async def run_compliance_qa(self, sample: dict[str, Any]) -> RunResult:
@@ -205,6 +306,7 @@ class PydanticAIRunner(FrameworkRunner):
             schema_cls=PolicyAnswer,
             system_prompt=get_task_system_prompt("compliance_qa"),
             user_prompt=build_task_user_prompt("compliance_qa", sample),
+            deps=self._deps_for_sample("compliance_qa", sample),
         )
 
     async def run_multi_step(self, sample: dict[str, Any]) -> RunResult:
@@ -212,6 +314,7 @@ class PydanticAIRunner(FrameworkRunner):
             schema_cls=WorkflowResult,
             system_prompt=get_task_system_prompt("multi_step"),
             user_prompt=build_task_user_prompt("multi_step", sample),
+            deps=self._deps_for_sample("multi_step", sample),
         )
         state_path = ["classify", "select_tool"]
         if result.output is not None:

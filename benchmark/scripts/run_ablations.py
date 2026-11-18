@@ -107,6 +107,11 @@ async def run_ablation_matrix(args: argparse.Namespace) -> int:
                 effective_retries = (
                     0 if rk.pop("force_max_retries", None) == 0 else max_retries
                 )
+                feature_kwargs = {
+                    key: value
+                    for key, value in rk.items()
+                    if key in {"enable_validators", "use_typed_deps"}
+                }
                 # Only pydantic_ai currently accepts feature flags; others ignore via get_runner.
                 try:
                     runner = get_runner(
@@ -114,6 +119,7 @@ async def run_ablation_matrix(args: argparse.Namespace) -> int:
                         model=model,
                         max_retries=effective_retries,
                         dry_run=args.dry_run,
+                        **feature_kwargs,
                     )
                 except TypeError:
                     runner = get_runner(
@@ -122,14 +128,16 @@ async def run_ablation_matrix(args: argparse.Namespace) -> int:
                         max_retries=effective_retries,
                         dry_run=args.dry_run,
                     )
-                if hasattr(runner, "enable_validators") and "enable_validators" in rk:
-                    runner.enable_validators = rk["enable_validators"]
-                if hasattr(runner, "use_typed_deps") and "use_typed_deps" in rk:
-                    runner.use_typed_deps = rk["use_typed_deps"]
+                    if hasattr(runner, "enable_validators") and "enable_validators" in feature_kwargs:
+                        runner.enable_validators = feature_kwargs["enable_validators"]
+                    if hasattr(runner, "use_typed_deps") and "use_typed_deps" in feature_kwargs:
+                        runner.use_typed_deps = feature_kwargs["use_typed_deps"]
 
                 for task in abl["tasks"]:
                     limit = task_limits.get(task)
-                    if args.pilot:
+                    if args.limit is not None:
+                        limit = args.limit
+                    elif args.pilot:
                         limit = min(limit or 10, 5)
                     samples = load_task_samples(task, limit)
                     for seed in seeds:
@@ -166,6 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--model", default=None)
     parser.add_argument("--max-retries", type=int, default=None)
     parser.add_argument("--pilot", action="store_true")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Cap samples per task (overrides pilot/config limits).",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--run-id", default=None)
     parser.add_argument(

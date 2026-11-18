@@ -37,11 +37,17 @@ Live runs require provider credentials. The eligible confirmatory matrix is `6 Ã
 
 ```bash
 python scripts/run_benchmark.py --all --all-seeds --run-id confirmatory-5400-v1
-# optional resume helper:
-# bash scripts/run_confirmatory_until_done.sh
 ```
 
-For optional Arbutus Cloud provisioning, see [docs/arbutus_cloud.md](docs/arbutus_cloud.md). Those scripts use your private OpenStack OpenRC session and do not store model-provider keys.
+Labeled ablations (retry budget, domain validators, typed dependencies):
+
+```bash
+python scripts/run_ablations.py --all-frameworks --ablation-id zero_retry_vs_final_validity --pilot
+python scripts/run_ablations.py --framework pydantic_ai --ablation-id domain_validators_enabled --limit 15
+python scripts/run_ablations.py --framework pydantic_ai --ablation-id typed_dependencies_and_tools --limit 15
+```
+
+For optional Arbutus Cloud provisioning, see [docs/arbutus_cloud.md](docs/arbutus_cloud.md).
 
 ## Documentation
 
@@ -52,12 +58,11 @@ For optional Arbutus Cloud provisioning, see [docs/arbutus_cloud.md](docs/arbutu
 | [docs/human_audit_protocol.md](docs/human_audit_protocol.md) | Blinded human-audit packet protocol |
 | [docs/maintainability_rubric.md](docs/maintainability_rubric.md) | Maintainability scoring rubric |
 | [docs/threats_to_validity.md](docs/threats_to_validity.md) | Validity threats |
-| [docs/live_pilot_summary.md](docs/live_pilot_summary.md) | Historical pilot status notes |
 | [benchmark/README.md](benchmark/README.md) | Install and run commands |
 
 ## Claim Scope
 
-Reported contrasts are about **system-level structured-output integration paths** under a shared harness, not a general ranking of frameworks or a claim that schema validity equals task correctness. Result directories are local by default (`benchmark/results/` is gitignored); regenerate data and rerun to reproduce the pipeline.
+Reported contrasts are about **system-level structured-output integration paths** under a shared harness, not a general ranking of frameworks or a claim that schema validity equals task correctness. Result directories are local by default (`benchmark/results/` is gitignored).
 
 ## Citation
 

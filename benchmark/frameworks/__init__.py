@@ -11,7 +11,14 @@ from frameworks.plain_sdk.runner import PlainSDKRunner
 from frameworks.pydantic_ai.runner import PydanticAIRunner
 
 
-def get_runner(framework: str, *, model: str, max_retries: int, dry_run: bool = False) -> FrameworkRunner:
+def get_runner(
+    framework: str,
+    *,
+    model: str,
+    max_retries: int,
+    dry_run: bool = False,
+    **feature_kwargs,
+) -> FrameworkRunner:
     if dry_run:
         return DryRunRunner()
     runners: dict[str, type[FrameworkRunner]] = {
@@ -28,6 +35,6 @@ def get_runner(framework: str, *, model: str, max_retries: int, dry_run: bool = 
             f"Available: {list(runners.keys())} (+ dry_run)"
         )
     cls = runners[framework]
-    if framework == "plain_sdk":
-        return cls(model=model, max_retries=max_retries)
+    if framework == "pydantic_ai":
+        return cls(model=model, max_retries=max_retries, **feature_kwargs)
     return cls(model=model, max_retries=max_retries)
